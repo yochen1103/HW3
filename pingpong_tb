@@ -1,0 +1,82 @@
+LIBRARY ieee;
+USE ieee.std_logic_1164.ALL;
+
+ENTITY pingpong_tb IS
+END pingpong_tb;
+
+ARCHITECTURE behavior OF pingpong_tb IS
+
+    -- UUT 元件宣告
+    COMPONENT pingpong
+        PORT (
+            i_clk : IN  STD_LOGIC;
+            i_rst : IN  STD_LOGIC;
+            i_swL : IN  STD_LOGIC;
+            i_swR : IN  STD_LOGIC;
+            o_led : OUT STD_LOGIC_VECTOR (7 downto 0)
+        );
+    END COMPONENT;
+
+    -- 訊號定義（初始化於宣告處可縮減 stim_proc 長度）
+    signal clock : std_logic := '0';
+    signal reset : std_logic := '0';
+    signal swL   : std_logic := '0';
+    signal swR   : std_logic := '0';
+    signal led   : std_logic_vector(7 downto 0);
+
+    constant T : time := 20 ns; -- 定義時脈週期常數
+
+BEGIN
+
+    -- 實例化 UUT
+    uut: pingpong PORT MAP (
+        i_clk => clock, i_rst => reset,
+        i_swL => swL,   i_swR => swR,
+        o_led => led
+    );
+
+    -- 時脈產生 (更簡潔的寫法)
+    clock <= not clock after T/2;
+
+    -- 刺激過程
+    stim_proc: process
+        -- 定義 Procedure 減少重複程式碼：模擬按下開關動作
+        procedure press_button(signal sw : out std_logic; hold_time : time := 80 ns) is
+        begin
+            sw <= '1';
+            wait for hold_time;
+            sw <= '0';
+        end procedure;
+
+    begin
+        -- 系統初始化
+        reset <= '0'; wait for T*1.15;
+        reset <= '1'; 
+        
+        -- 1. 左方發球後，右方正常接球
+        wait for 530 ns; press_button(swR);
+
+        -- 2. 左方提早擊球 (失分) -> 右方發球
+        wait for 300 ns; press_button(swL);
+        wait for 80 ns;  press_button(swR);
+        
+        -- 3. 左方正常接球
+        wait for 500 ns; press_button(swL);
+        
+        -- 4. 右方提早擊球 (失分) -> 左方發球
+        wait for 100 ns; press_button(swR);
+        wait for 80 ns;  press_button(swL);
+        
+        -- 5. 右方正常接球
+        wait for 550 ns; press_button(swR);
+        
+        -- 6. 左方漏接 -> 右方得分並發球
+        wait for 680 ns; press_button(swR);
+        
+        -- 7. 左方接球成功 -> 最終右方漏接
+        wait for 550 ns; press_button(swL);
+
+        wait;
+    end process;
+
+END behavior;
